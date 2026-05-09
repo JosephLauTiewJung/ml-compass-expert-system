@@ -1,0 +1,256 @@
+{
+  "project": "ML Compass",
+  "version": "0.1.0-prototype",
+  "description": "Prototype knowledge base for mapping beginner-friendly dataset questions to ML problem types, model choices, evaluation metrics, preprocessing advice, and starter code.",
+  "problem_types": {
+    "classification": {
+      "title": "Classification",
+      "summary": "Use classification when the target column is a category or label.",
+      "data_types": {
+        "tabular": {
+          "reason": "You have a target column with categories or class labels, so the task is to predict one class for each row.",
+          "models": [
+            {
+              "name": "Logistic Regression",
+              "why": "Good first baseline for binary or multi-class classification. It is fast, simple, and easy to explain.",
+              "accuracy_rank": 3,
+              "explainability_rank": 1
+            },
+            {
+              "name": "Random Forest Classifier",
+              "why": "Handles non-linear patterns and mixed tabular features better than many simple linear models.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "XGBoost Classifier",
+              "why": "Strong choice for high-accuracy tabular classification when performance matters more than simplicity.",
+              "accuracy_rank": 1,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "Accuracy",
+            "F1-score",
+            "Precision",
+            "Recall",
+            "ROC-AUC"
+          ],
+          "preprocessing": [
+            "Split the dataset into training and test sets.",
+            "Handle missing values in both numeric and categorical columns.",
+            "Encode categorical input features.",
+            "Scale numeric features when using Logistic Regression.",
+            "Check whether the target classes are imbalanced."
+          ],
+          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score, f1_score\n\nX = df.drop(\"target\", axis=1)\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = LogisticRegression(max_iter=1000)\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"Accuracy:\", accuracy_score(y_test, predictions))\nprint(\"F1 Score:\", f1_score(y_test, predictions, average=\"weighted\"))"
+        }
+      }
+    },
+    "regression": {
+      "title": "Regression",
+      "summary": "Use regression when the target column is a numeric value and the rows are not mainly ordered by time.",
+      "data_types": {
+        "tabular": {
+          "reason": "You have a numeric target with continuous values, so the task is to predict a number.",
+          "models": [
+            {
+              "name": "Linear Regression",
+              "why": "Simple baseline for numeric prediction and easy to interpret.",
+              "accuracy_rank": 3,
+              "explainability_rank": 1
+            },
+            {
+              "name": "Random Forest Regressor",
+              "why": "Works well when relationships between features and the target are non-linear.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "XGBoost Regressor",
+              "why": "Often produces strong accuracy on structured tabular regression problems.",
+              "accuracy_rank": 1,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "MAE",
+            "RMSE",
+            "R2 Score"
+          ],
+          "preprocessing": [
+            "Split the dataset into training and test sets.",
+            "Handle missing values before training.",
+            "Encode categorical input features.",
+            "Scale numeric features when using Linear Regression.",
+            "Check for extreme target outliers."
+          ],
+          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LinearRegression\nfrom sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score\n\nX = df.drop(\"target\", axis=1)\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42\n)\n\nmodel = LinearRegression()\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"MAE:\", mean_absolute_error(y_test, predictions))\nprint(\"RMSE:\", mean_squared_error(y_test, predictions, squared=False))\nprint(\"R2:\", r2_score(y_test, predictions))"
+        }
+      }
+    },
+    "clustering": {
+      "title": "Clustering",
+      "summary": "Use clustering when there is no target column and the goal is to discover groups or patterns.",
+      "data_types": {
+        "tabular": {
+          "reason": "You do not have a target column, so this is likely unsupervised learning where the goal is to group similar rows.",
+          "models": [
+            {
+              "name": "K-Means",
+              "why": "Simple and common baseline for grouping numeric tabular data.",
+              "accuracy_rank": 1,
+              "explainability_rank": 1
+            },
+            {
+              "name": "DBSCAN",
+              "why": "Useful when clusters may have irregular shapes or when noise points should be separated.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "Hierarchical Clustering",
+              "why": "Useful for exploring nested group relationships with a dendrogram.",
+              "accuracy_rank": 3,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "Silhouette Score",
+            "Davies-Bouldin Index",
+            "Calinski-Harabasz Score"
+          ],
+          "preprocessing": [
+            "Remove ID columns that do not describe meaningful behavior.",
+            "Handle missing values.",
+            "Encode categorical features carefully.",
+            "Scale numeric features before clustering.",
+            "Try several cluster counts and compare scores."
+          ],
+          "starter_code": "from sklearn.cluster import KMeans\nfrom sklearn.metrics import silhouette_score\nfrom sklearn.preprocessing import StandardScaler\n\nfeatures = df.drop(columns=[\"id\"], errors=\"ignore\")\nscaled_features = StandardScaler().fit_transform(features)\n\nmodel = KMeans(n_clusters=3, random_state=42, n_init=\"auto\")\nclusters = model.fit_predict(scaled_features)\n\nprint(\"Silhouette Score:\", silhouette_score(scaled_features, clusters))"
+        }
+      }
+    },
+    "time_series_forecasting": {
+      "title": "Time-Series Forecasting",
+      "summary": "Use time-series forecasting when rows are ordered by date or time and the goal is to predict future numeric values.",
+      "data_types": {
+        "tabular": {
+          "reason": "Your numeric target is connected to date or time order, so the task is better treated as forecasting than ordinary regression.",
+          "models": [
+            {
+              "name": "Moving Average Baseline",
+              "why": "Simple benchmark that makes it easy to judge whether advanced models are actually helping.",
+              "accuracy_rank": 3,
+              "explainability_rank": 1
+            },
+            {
+              "name": "ARIMA",
+              "why": "Classic statistical model for univariate time-series forecasting.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "Prophet",
+              "why": "Beginner-friendly model for time series with trend, seasonality, and holiday effects.",
+              "accuracy_rank": 1,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "MAE",
+            "RMSE",
+            "MAPE"
+          ],
+          "preprocessing": [
+            "Sort records by date or time before splitting data.",
+            "Check for missing timestamps.",
+            "Use a time-based train/test split instead of random splitting.",
+            "Inspect trend, seasonality, and sudden changes.",
+            "Create lag or rolling-window features for machine learning models."
+          ],
+          "starter_code": "from sklearn.metrics import mean_absolute_error\n\nseries = df.sort_values(\"date\")[\"target\"]\nwindow = 7\npredictions = series.shift(1).rolling(window=window).mean()\n\nvalid = predictions.notna()\nprint(\"MAE:\", mean_absolute_error(series[valid], predictions[valid]))"
+        },
+        "time_series": {
+          "reason": "Your dataset is already described as time-series data, so the task is likely to forecast future values from past observations.",
+          "models": [
+            {
+              "name": "Moving Average Baseline",
+              "why": "Simple benchmark that makes it easy to judge whether advanced models are actually helping.",
+              "accuracy_rank": 3,
+              "explainability_rank": 1
+            },
+            {
+              "name": "ARIMA",
+              "why": "Classic statistical model for univariate time-series forecasting.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "Prophet",
+              "why": "Beginner-friendly model for time series with trend, seasonality, and holiday effects.",
+              "accuracy_rank": 1,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "MAE",
+            "RMSE",
+            "MAPE"
+          ],
+          "preprocessing": [
+            "Sort records by date or time before splitting data.",
+            "Check for missing timestamps.",
+            "Use a time-based train/test split instead of random splitting.",
+            "Inspect trend, seasonality, and sudden changes.",
+            "Create lag or rolling-window features for machine learning models."
+          ],
+          "starter_code": "from sklearn.metrics import mean_absolute_error\n\nseries = df.sort_values(\"date\")[\"target\"]\nwindow = 7\npredictions = series.shift(1).rolling(window=window).mean()\n\nvalid = predictions.notna()\nprint(\"MAE:\", mean_absolute_error(series[valid], predictions[valid]))"
+        }
+      }
+    },
+    "basic_nlp": {
+      "title": "Basic NLP",
+      "summary": "Use basic NLP when the main input data is text.",
+      "data_types": {
+        "text": {
+          "reason": "Your main input is text, so the text must be converted into numerical features before model training.",
+          "models": [
+            {
+              "name": "TF-IDF + Logistic Regression",
+              "why": "Strong and understandable baseline for text classification.",
+              "accuracy_rank": 1,
+              "explainability_rank": 1
+            },
+            {
+              "name": "TF-IDF + Linear SVM",
+              "why": "Often performs well for text classification with sparse word features.",
+              "accuracy_rank": 2,
+              "explainability_rank": 2
+            },
+            {
+              "name": "Naive Bayes",
+              "why": "Simple, fast, and common for beginner text classification tasks.",
+              "accuracy_rank": 3,
+              "explainability_rank": 3
+            }
+          ],
+          "metrics": [
+            "Accuracy",
+            "F1-score",
+            "Precision",
+            "Recall"
+          ],
+          "preprocessing": [
+            "Clean obvious formatting issues in text.",
+            "Convert text to numerical features with TF-IDF.",
+            "Use a stratified train/test split for classification.",
+            "Check class imbalance.",
+            "Review common errors by reading misclassified examples."
+          ],
+          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.feature_extraction.text import TfidfVectorizer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score, f1_score\n\nX = df[\"text\"]\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = Pipeline([\n    (\"tfidf\", TfidfVectorizer()),\n    (\"classifier\", LogisticRegression(max_iter=1000))\n])\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"Accuracy:\", accuracy_score(y_test, predictions))\nprint(\"F1 Score:\", f1_score(y_test, predictions, average=\"weighted\"))"
+        }
+      }
+    }
+  }
+}
