@@ -1,256 +1,1201 @@
 {
-  "project": "ML Compass",
-  "version": "0.1.0-prototype",
-  "description": "Prototype knowledge base for mapping beginner-friendly dataset questions to ML problem types, model choices, evaluation metrics, preprocessing advice, and starter code.",
-  "problem_types": {
-    "classification": {
-      "title": "Classification",
-      "summary": "Use classification when the target column is a category or label.",
-      "data_types": {
-        "tabular": {
-          "reason": "You have a target column with categories or class labels, so the task is to predict one class for each row.",
-          "models": [
-            {
-              "name": "Logistic Regression",
-              "why": "Good first baseline for binary or multi-class classification. It is fast, simple, and easy to explain.",
-              "accuracy_rank": 3,
-              "explainability_rank": 1
-            },
-            {
-              "name": "Random Forest Classifier",
-              "why": "Handles non-linear patterns and mixed tabular features better than many simple linear models.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "XGBoost Classifier",
-              "why": "Strong choice for high-accuracy tabular classification when performance matters more than simplicity.",
-              "accuracy_rank": 1,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "Accuracy",
-            "F1-score",
-            "Precision",
-            "Recall",
-            "ROC-AUC"
-          ],
-          "preprocessing": [
-            "Split the dataset into training and test sets.",
-            "Handle missing values in both numeric and categorical columns.",
-            "Encode categorical input features.",
-            "Scale numeric features when using Logistic Regression.",
-            "Check whether the target classes are imbalanced."
-          ],
-          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score, f1_score\n\nX = df.drop(\"target\", axis=1)\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = LogisticRegression(max_iter=1000)\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"Accuracy:\", accuracy_score(y_test, predictions))\nprint(\"F1 Score:\", f1_score(y_test, predictions, average=\"weighted\"))"
-        }
+  "project": {
+    "name": "ML Compass",
+    "description": "Expert system knowledge base for beginner-friendly machine learning model selection.",
+    "version": "1.0",
+    "reasoning_type": "rule_based_goal_driven"
+  },
+  "input_schema": {
+    "has_target_column": "boolean | unknown",
+    "target_type": "categorical | continuous_numeric | numeric_label | unknown",
+    "target_unique_classes": "number | unknown",
+    "can_have_multiple_labels": "boolean | unknown",
+    "data_type": "tabular | text | image | time_series | multimodal | unknown",
+    "text_complexity": "simple | complex | unknown",
+    "dataset_rows": "number | unknown",
+    "class_balance": "balanced | imbalanced | unknown",
+    "majority_class_percentage": "number | unknown",
+    "missing_value_percentage": "number | unknown",
+    "missing_value_type": "numerical | categorical | mixed | unknown",
+    "has_outliers": "boolean | unknown",
+    "goal": "classification | regression | grouping | anomaly_detection | forecasting | nlp | unknown",
+    "priority": "transparency | performance | balanced | unknown",
+    "domain": "general | medical | legal | financial | educational | unknown",
+    "has_gpu": "boolean | unknown",
+    "timeline": "short | medium | long | unknown",
+    "programming_skill": "beginner | intermediate | advanced | unknown"
+  },
+  "thresholds": {
+    "small_dataset_rows_lt": 1000,
+    "medium_dataset_rows_min": 1000,
+    "medium_dataset_rows_max": 100000,
+    "large_dataset_rows_gt": 100000,
+    "low_missing_percentage_lt": 5,
+    "high_missing_feature_percentage_gt": 40,
+    "imbalanced_majority_class_percentage_gt": 80
+  },
+  "rule_priority_order": [
+    "ml_necessity",
+    "task_type",
+    "data_type",
+    "dataset_size",
+    "practical_constraints",
+    "preprocessing",
+    "evaluation_metrics",
+    "final_validation"
+  ],
+  "rules": [
+    {
+      "id": "R001",
+      "category": "ml_necessity",
+      "name": "Machine Learning Necessity",
+      "if": {
+        "any": [
+          "output_can_be_calculated_by_formula == true",
+          "decision_follows_simple_fixed_rule == true"
+        ]
+      },
+      "then": {
+        "recommendation": "Use rule-based logic or standard statistics",
+        "use_machine_learning": false,
+        "warning": "Machine learning is not needed because the answer can be obtained directly."
       }
     },
-    "regression": {
-      "title": "Regression",
-      "summary": "Use regression when the target column is a numeric value and the rows are not mainly ordered by time.",
-      "data_types": {
-        "tabular": {
-          "reason": "You have a numeric target with continuous values, so the task is to predict a number.",
-          "models": [
-            {
-              "name": "Linear Regression",
-              "why": "Simple baseline for numeric prediction and easy to interpret.",
-              "accuracy_rank": 3,
-              "explainability_rank": 1
-            },
-            {
-              "name": "Random Forest Regressor",
-              "why": "Works well when relationships between features and the target are non-linear.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "XGBoost Regressor",
-              "why": "Often produces strong accuracy on structured tabular regression problems.",
-              "accuracy_rank": 1,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "MAE",
-            "RMSE",
-            "R2 Score"
-          ],
-          "preprocessing": [
-            "Split the dataset into training and test sets.",
-            "Handle missing values before training.",
-            "Encode categorical input features.",
-            "Scale numeric features when using Linear Regression.",
-            "Check for extreme target outliers."
-          ],
-          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LinearRegression\nfrom sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score\n\nX = df.drop(\"target\", axis=1)\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42\n)\n\nmodel = LinearRegression()\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"MAE:\", mean_absolute_error(y_test, predictions))\nprint(\"RMSE:\", mean_squared_error(y_test, predictions, squared=False))\nprint(\"R2:\", r2_score(y_test, predictions))"
-        }
+    {
+      "id": "R002",
+      "category": "ml_necessity",
+      "name": "Hidden Pattern Requirement",
+      "if": {
+        "all": [
+          "relationship_between_input_and_output == not_obvious",
+          "needs_to_learn_from_past_data == true"
+        ]
+      },
+      "then": {
+        "use_machine_learning": true,
+        "reason": "Machine learning is suitable because the pattern is hidden in historical data."
       }
     },
-    "clustering": {
-      "title": "Clustering",
-      "summary": "Use clustering when there is no target column and the goal is to discover groups or patterns.",
-      "data_types": {
-        "tabular": {
-          "reason": "You do not have a target column, so this is likely unsupervised learning where the goal is to group similar rows.",
-          "models": [
-            {
-              "name": "K-Means",
-              "why": "Simple and common baseline for grouping numeric tabular data.",
-              "accuracy_rank": 1,
-              "explainability_rank": 1
-            },
-            {
-              "name": "DBSCAN",
-              "why": "Useful when clusters may have irregular shapes or when noise points should be separated.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "Hierarchical Clustering",
-              "why": "Useful for exploring nested group relationships with a dendrogram.",
-              "accuracy_rank": 3,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "Silhouette Score",
-            "Davies-Bouldin Index",
-            "Calinski-Harabasz Score"
-          ],
-          "preprocessing": [
-            "Remove ID columns that do not describe meaningful behavior.",
-            "Handle missing values.",
-            "Encode categorical features carefully.",
-            "Scale numeric features before clustering.",
-            "Try several cluster counts and compare scores."
-          ],
-          "starter_code": "from sklearn.cluster import KMeans\nfrom sklearn.metrics import silhouette_score\nfrom sklearn.preprocessing import StandardScaler\n\nfeatures = df.drop(columns=[\"id\"], errors=\"ignore\")\nscaled_features = StandardScaler().fit_transform(features)\n\nmodel = KMeans(n_clusters=3, random_state=42, n_init=\"auto\")\nclusters = model.fit_predict(scaled_features)\n\nprint(\"Silhouette Score:\", silhouette_score(scaled_features, clusters))"
-        }
+    {
+      "id": "R003",
+      "category": "priority_filter",
+      "name": "Transparency Priority",
+      "if": {
+        "any": [
+          "priority == transparency",
+          "domain in [medical, legal, financial, educational]"
+        ]
+      },
+      "then": {
+        "model_preference": [
+          "Logistic Regression",
+          "Linear Regression",
+          "Decision Tree",
+          "Rule-Based Model"
+        ],
+        "reason": "Sensitive or explainable projects need models that are easier to justify."
       }
     },
-    "time_series_forecasting": {
-      "title": "Time-Series Forecasting",
-      "summary": "Use time-series forecasting when rows are ordered by date or time and the goal is to predict future numeric values.",
-      "data_types": {
-        "tabular": {
-          "reason": "Your numeric target is connected to date or time order, so the task is better treated as forecasting than ordinary regression.",
-          "models": [
-            {
-              "name": "Moving Average Baseline",
-              "why": "Simple benchmark that makes it easy to judge whether advanced models are actually helping.",
-              "accuracy_rank": 3,
-              "explainability_rank": 1
-            },
-            {
-              "name": "ARIMA",
-              "why": "Classic statistical model for univariate time-series forecasting.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "Prophet",
-              "why": "Beginner-friendly model for time series with trend, seasonality, and holiday effects.",
-              "accuracy_rank": 1,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "MAE",
-            "RMSE",
-            "MAPE"
-          ],
-          "preprocessing": [
-            "Sort records by date or time before splitting data.",
-            "Check for missing timestamps.",
-            "Use a time-based train/test split instead of random splitting.",
-            "Inspect trend, seasonality, and sudden changes.",
-            "Create lag or rolling-window features for machine learning models."
-          ],
-          "starter_code": "from sklearn.metrics import mean_absolute_error\n\nseries = df.sort_values(\"date\")[\"target\"]\nwindow = 7\npredictions = series.shift(1).rolling(window=window).mean()\n\nvalid = predictions.notna()\nprint(\"MAE:\", mean_absolute_error(series[valid], predictions[valid]))"
-        },
-        "time_series": {
-          "reason": "Your dataset is already described as time-series data, so the task is likely to forecast future values from past observations.",
-          "models": [
-            {
-              "name": "Moving Average Baseline",
-              "why": "Simple benchmark that makes it easy to judge whether advanced models are actually helping.",
-              "accuracy_rank": 3,
-              "explainability_rank": 1
-            },
-            {
-              "name": "ARIMA",
-              "why": "Classic statistical model for univariate time-series forecasting.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "Prophet",
-              "why": "Beginner-friendly model for time series with trend, seasonality, and holiday effects.",
-              "accuracy_rank": 1,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "MAE",
-            "RMSE",
-            "MAPE"
-          ],
-          "preprocessing": [
-            "Sort records by date or time before splitting data.",
-            "Check for missing timestamps.",
-            "Use a time-based train/test split instead of random splitting.",
-            "Inspect trend, seasonality, and sudden changes.",
-            "Create lag or rolling-window features for machine learning models."
-          ],
-          "starter_code": "from sklearn.metrics import mean_absolute_error\n\nseries = df.sort_values(\"date\")[\"target\"]\nwindow = 7\npredictions = series.shift(1).rolling(window=window).mean()\n\nvalid = predictions.notna()\nprint(\"MAE:\", mean_absolute_error(series[valid], predictions[valid]))"
-        }
+    {
+      "id": "R004",
+      "category": "priority_filter",
+      "name": "Performance Priority",
+      "if": {
+        "all": [
+          "priority == performance",
+          "explainability_required == false",
+          "dataset_rows >= 100000"
+        ]
+      },
+      "then": {
+        "model_preference": [
+          "Random Forest",
+          "XGBoost",
+          "LightGBM",
+          "CNN",
+          "LSTM",
+          "BERT",
+          "Transformer"
+        ],
+        "reason": "When accuracy is more important than explainability, stronger models may be suitable."
       }
     },
-    "basic_nlp": {
-      "title": "Basic NLP",
-      "summary": "Use basic NLP when the main input data is text.",
-      "data_types": {
-        "text": {
-          "reason": "Your main input is text, so the text must be converted into numerical features before model training.",
-          "models": [
-            {
-              "name": "TF-IDF + Logistic Regression",
-              "why": "Strong and understandable baseline for text classification.",
-              "accuracy_rank": 1,
-              "explainability_rank": 1
-            },
-            {
-              "name": "TF-IDF + Linear SVM",
-              "why": "Often performs well for text classification with sparse word features.",
-              "accuracy_rank": 2,
-              "explainability_rank": 2
-            },
-            {
-              "name": "Naive Bayes",
-              "why": "Simple, fast, and common for beginner text classification tasks.",
-              "accuracy_rank": 3,
-              "explainability_rank": 3
-            }
-          ],
-          "metrics": [
-            "Accuracy",
-            "F1-score",
-            "Precision",
-            "Recall"
-          ],
-          "preprocessing": [
-            "Clean obvious formatting issues in text.",
-            "Convert text to numerical features with TF-IDF.",
-            "Use a stratified train/test split for classification.",
-            "Check class imbalance.",
-            "Review common errors by reading misclassified examples."
-          ],
-          "starter_code": "from sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.feature_extraction.text import TfidfVectorizer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score, f1_score\n\nX = df[\"text\"]\ny = df[\"target\"]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)\n\nmodel = Pipeline([\n    (\"tfidf\", TfidfVectorizer()),\n    (\"classifier\", LogisticRegression(max_iter=1000))\n])\nmodel.fit(X_train, y_train)\n\npredictions = model.predict(X_test)\n\nprint(\"Accuracy:\", accuracy_score(y_test, predictions))\nprint(\"F1 Score:\", f1_score(y_test, predictions, average=\"weighted\"))"
-        }
+    {
+      "id": "R005",
+      "category": "task_type",
+      "name": "Classification Task",
+      "if": {
+        "all": [
+          "has_target_column == true",
+          "target_type == categorical"
+        ]
+      },
+      "then": {
+        "problem_type": "classification",
+        "reason": "The target output is a category or class."
+      }
+    },
+    {
+      "id": "R006",
+      "category": "task_type",
+      "name": "Regression Task",
+      "if": {
+        "all": [
+          "has_target_column == true",
+          "target_type == continuous_numeric"
+        ]
+      },
+      "then": {
+        "problem_type": "regression",
+        "reason": "The target output is a continuous number."
+      }
+    },
+    {
+      "id": "R007",
+      "category": "task_type",
+      "name": "Clustering Task",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "goal == grouping"
+        ]
+      },
+      "then": {
+        "problem_type": "clustering",
+        "reason": "There is no target column and the goal is to group similar data."
+      }
+    },
+    {
+      "id": "R008",
+      "category": "task_type",
+      "name": "Anomaly Detection Task",
+      "if": {
+        "any": [
+          "goal == anomaly_detection",
+          "goal == rare_pattern_detection"
+        ]
+      },
+      "then": {
+        "problem_type": "anomaly_detection",
+        "reason": "The goal is to find rare or abnormal cases."
+      }
+    },
+    {
+      "id": "R009",
+      "category": "task_type",
+      "name": "Time Series Forecasting Task",
+      "if": {
+        "all": [
+          "data_type == time_series",
+          "goal == forecasting"
+        ]
+      },
+      "then": {
+        "problem_type": "time_series_forecasting",
+        "reason": "The data is ordered by time and the goal is to predict future values."
+      }
+    },
+    {
+      "id": "R010",
+      "category": "task_type",
+      "name": "NLP / LLM Task",
+      "if": {
+        "any": [
+          "data_type == text",
+          "goal == nlp",
+          "goal in [summarization, translation, question_answering, text_generation]"
+        ]
+      },
+      "then": {
+        "problem_type": "nlp",
+        "reason": "The task depends on understanding or generating human language."
+      }
+    },
+    {
+      "id": "R011",
+      "category": "numeric_trap",
+      "name": "Numeric Category Rule",
+      "if": {
+        "all": [
+          "target_type == numeric_label",
+          "number_difference_has_real_quantity_meaning == false"
+        ]
+      },
+      "then": {
+        "problem_type": "classification",
+        "reason": "Numbers are used as labels, not real measurable values."
+      }
+    },
+    {
+      "id": "R012",
+      "category": "numeric_trap",
+      "name": "Continuous Quantity Rule",
+      "if": {
+        "all": [
+          "target_type == continuous_numeric",
+          "number_difference_has_real_quantity_meaning == true"
+        ]
+      },
+      "then": {
+        "problem_type": "regression",
+        "reason": "The number difference has real measurable meaning."
+      }
+    },
+    {
+      "id": "R013",
+      "category": "data_type",
+      "name": "Tabular Data Model Family",
+      "if": {
+        "all": [
+          "data_type == tabular"
+        ]
+      },
+      "then": {
+        "recommended_model_family": "traditional_machine_learning",
+        "baseline_models": [
+          "Logistic Regression",
+          "Linear Regression",
+          "Decision Tree"
+        ],
+        "advanced_models": [
+          "Random Forest",
+          "XGBoost",
+          "LightGBM"
+        ]
+      }
+    },
+    {
+      "id": "R014",
+      "category": "data_type",
+      "name": "Simple Text Data",
+      "if": {
+        "all": [
+          "data_type == text",
+          "text_complexity == simple"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "TF-IDF"
+        ],
+        "recommended_models": [
+          "Naive Bayes",
+          "Logistic Regression",
+          "SVM"
+        ],
+        "reason": "Simple text tasks can often be solved using keyword-frequency features."
+      }
+    },
+    {
+      "id": "R015",
+      "category": "data_type",
+      "name": "Complex Text Data",
+      "if": {
+        "any": [
+          "data_type == text AND text_complexity == complex",
+          "word_order_is_important == true",
+          "context_understanding_required == true"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "LSTM",
+          "BERT",
+          "Transformer"
+        ],
+        "warning": "Use these only if dataset size and resources are enough."
+      }
+    },
+    {
+      "id": "R016",
+      "category": "data_type",
+      "name": "Image Data",
+      "if": {
+        "all": [
+          "data_type == image"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "CNN",
+          "ResNet",
+          "Vision Transformer"
+        ],
+        "reason": "Image data contains spatial pixel patterns."
+      }
+    },
+    {
+      "id": "R017",
+      "category": "data_type",
+      "name": "Time Series Data",
+      "if": {
+        "all": [
+          "data_type == time_series",
+          "past_values_affect_future_values == true"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "ARIMA",
+          "Prophet",
+          "XGBoost with lag features",
+          "LSTM",
+          "GRU"
+        ],
+        "reason": "Chronological order matters."
+      }
+    },
+    {
+      "id": "R018",
+      "category": "data_type",
+      "name": "Multi-Modal Data",
+      "if": {
+        "all": [
+          "data_type == multimodal"
+        ]
+      },
+      "then": {
+        "strategy": [
+          "Identify dominant data type",
+          "Extract features from secondary data type",
+          "Combine features for final prediction"
+        ]
+      }
+    },
+    {
+      "id": "R019",
+      "category": "learning_type",
+      "name": "Supervised Learning",
+      "if": {
+        "all": [
+          "has_target_column == true",
+          "labeled_data_available == true"
+        ]
+      },
+      "then": {
+        "learning_type": "supervised_learning"
+      }
+    },
+    {
+      "id": "R020",
+      "category": "learning_type",
+      "name": "Unlabeled Data Clustering",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "goal == grouping"
+        ]
+      },
+      "then": {
+        "learning_type": "unsupervised_learning",
+        "problem_type": "clustering"
+      }
+    },
+    {
+      "id": "R021",
+      "category": "learning_type",
+      "name": "Unlabeled Data Anomaly Detection",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "goal == anomaly_detection"
+        ]
+      },
+      "then": {
+        "learning_type": "unsupervised_or_semi_supervised_anomaly_detection"
+      }
+    },
+    {
+      "id": "R022",
+      "category": "learning_type",
+      "name": "Semi-Supervised Approach",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "labeling_possible == true"
+        ]
+      },
+      "then": {
+        "recommendation": "Use semi-supervised learning or pseudo-labeling"
+      }
+    },
+    {
+      "id": "R023",
+      "category": "learning_type",
+      "name": "Rule-Based Labeling",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "domain_rules_can_create_labels == true"
+        ]
+      },
+      "then": {
+        "recommendation": "Create labels using domain rules before training a supervised model"
+      }
+    },
+    {
+      "id": "R024",
+      "category": "learning_type",
+      "name": "Pseudo-Labeling",
+      "if": {
+        "all": [
+          "has_target_column == false",
+          "clustering_produces_meaningful_groups == true"
+        ]
+      },
+      "then": {
+        "recommendation": "Use cluster IDs as pseudo-labels for classification"
+      }
+    },
+    {
+      "id": "R025",
+      "category": "dataset_size",
+      "name": "Small Dataset",
+      "if": {
+        "all": [
+          "dataset_rows < 1000"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "Logistic Regression",
+          "Linear Regression",
+          "Decision Tree",
+          "Naive Bayes",
+          "SVM",
+          "KNN"
+        ],
+        "avoid_first": [
+          "CNN",
+          "LSTM",
+          "BERT",
+          "Transformer"
+        ],
+        "warning": "Small datasets have higher overfitting risk."
+      }
+    },
+    {
+      "id": "R026",
+      "category": "dataset_size",
+      "name": "Medium Dataset",
+      "if": {
+        "all": [
+          "dataset_rows >= 1000",
+          "dataset_rows <= 100000"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "Random Forest",
+          "XGBoost",
+          "LightGBM",
+          "SVM"
+        ]
+      }
+    },
+    {
+      "id": "R027",
+      "category": "dataset_size",
+      "name": "Large Dataset",
+      "if": {
+        "all": [
+          "dataset_rows > 100000",
+          "problem_complexity == high"
+        ]
+      },
+      "then": {
+        "recommended_models": [
+          "CNN",
+          "LSTM",
+          "GRU",
+          "BERT",
+          "Transformer"
+        ]
+      }
+    },
+    {
+      "id": "R028",
+      "category": "dataset_size",
+      "name": "Overfitting Warning",
+      "if": {
+        "all": [
+          "dataset_rows < 1000",
+          "selected_model in [CNN, LSTM, BERT, Transformer]"
+        ]
+      },
+      "then": {
+        "warning": "Complex model on small dataset may memorize noise instead of learning patterns.",
+        "recommendation": "Start with a simpler baseline model."
+      }
+    },
+    {
+      "id": "R029",
+      "category": "dataset_size",
+      "name": "Baseline Model Rule",
+      "if": {
+        "all": [
+          "student_has_trained_model_before == false"
+        ]
+      },
+      "then": {
+        "recommendation": "Start with a simple baseline model before advanced models."
+      }
+    },
+    {
+      "id": "R030",
+      "category": "preprocessing",
+      "name": "Scaling Required",
+      "if": {
+        "any": [
+          "selected_model in [SVM, KNN, Logistic Regression, Neural Network]"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Standardization",
+          "Normalization"
+        ],
+        "reason": "Distance and gradient-based models are affected by feature scale."
+      }
+    },
+    {
+      "id": "R031",
+      "category": "preprocessing",
+      "name": "Scaling Optional for Tree Models",
+      "if": {
+        "any": [
+          "selected_model in [Decision Tree, Random Forest, XGBoost, LightGBM]"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Feature scaling optional"
+        ],
+        "reason": "Tree models split using thresholds and are less affected by scale."
+      }
+    },
+    {
+      "id": "R032",
+      "category": "preprocessing",
+      "name": "Ordinal Encoding",
+      "if": {
+        "all": [
+          "categorical_feature_order == natural_order"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Label Encoding"
+        ]
+      }
+    },
+    {
+      "id": "R033",
+      "category": "preprocessing",
+      "name": "Nominal Encoding",
+      "if": {
+        "all": [
+          "categorical_feature_order == no_order"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "One-Hot Encoding"
+        ],
+        "reason": "Avoid creating fake ranking between categories."
+      }
+    },
+    {
+      "id": "R034",
+      "category": "preprocessing",
+      "name": "High Cardinality Encoding",
+      "if": {
+        "all": [
+          "categorical_unique_values > 100"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Target Encoding"
+        ],
+        "warning": "Too many one-hot columns can make the dataset too large."
+      }
+    },
+    {
+      "id": "R035",
+      "category": "preprocessing",
+      "name": "Low Missing Values",
+      "if": {
+        "all": [
+          "missing_value_percentage < 5"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Remove affected rows if dataset size remains acceptable"
+        ]
+      }
+    },
+    {
+      "id": "R036",
+      "category": "preprocessing",
+      "name": "Missing Numerical Values",
+      "if": {
+        "all": [
+          "missing_value_type == numerical"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Median Imputation"
+        ]
+      }
+    },
+    {
+      "id": "R037",
+      "category": "preprocessing",
+      "name": "Missing Categorical Values",
+      "if": {
+        "all": [
+          "missing_value_type == categorical"
+        ]
+      },
+      "then": {
+        "preprocessing": [
+          "Mode Imputation",
+          "Create Unknown category"
+        ]
+      }
+    },
+    {
+      "id": "R038",
+      "category": "evaluation_metrics",
+      "name": "Balanced Classification Metric",
+      "if": {
+        "all": [
+          "problem_type == classification",
+          "class_balance == balanced"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "Accuracy"
+        ]
+      }
+    },
+    {
+      "id": "R039",
+      "category": "evaluation_metrics",
+      "name": "Imbalanced Classification Metric",
+      "if": {
+        "any": [
+          "class_balance == imbalanced",
+          "majority_class_percentage > 80"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "F1-Score",
+          "Precision",
+          "Recall",
+          "PR-AUC"
+        ],
+        "warning": "Accuracy alone may be misleading for imbalanced data."
+      }
+    },
+    {
+      "id": "R040",
+      "category": "evaluation_metrics",
+      "name": "High False Negative Cost",
+      "if": {
+        "all": [
+          "false_negative_cost == high"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "Recall"
+        ]
+      }
+    },
+    {
+      "id": "R041",
+      "category": "evaluation_metrics",
+      "name": "High False Positive Cost",
+      "if": {
+        "all": [
+          "false_positive_cost == high"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "Precision"
+        ]
+      }
+    },
+    {
+      "id": "R042",
+      "category": "evaluation_metrics",
+      "name": "Regression RMSE",
+      "if": {
+        "all": [
+          "problem_type == regression",
+          "has_outliers == false"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "RMSE"
+        ]
+      }
+    },
+    {
+      "id": "R043",
+      "category": "evaluation_metrics",
+      "name": "Regression MAE",
+      "if": {
+        "all": [
+          "problem_type == regression",
+          "has_outliers == true"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "MAE"
+        ]
+      }
+    },
+    {
+      "id": "R044",
+      "category": "evaluation_metrics",
+      "name": "Regression R2 Score",
+      "if": {
+        "all": [
+          "problem_type == regression",
+          "wants_variance_explanation == true"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "R2 Score"
+        ]
+      }
+    },
+    {
+      "id": "R045",
+      "category": "practical_constraints",
+      "name": "Resource Limitation",
+      "if": {
+        "any": [
+          "timeline == short",
+          "has_gpu == false",
+          "programming_skill == beginner"
+        ]
+      },
+      "then": {
+        "prefer_models": [
+          "Logistic Regression",
+          "Linear Regression",
+          "Decision Tree",
+          "Naive Bayes"
+        ],
+        "avoid_first": [
+          "CNN",
+          "LSTM",
+          "BERT",
+          "Transformer"
+        ]
+      }
+    },
+    {
+      "id": "R046",
+      "category": "conflict_handling",
+      "name": "Dataset Size Overrides Complexity",
+      "if": {
+        "all": [
+          "recommended_model_complexity == high",
+          "dataset_rows < 1000"
+        ]
+      },
+      "then": {
+        "override": "Use simpler baseline first",
+        "reason": "Small data is more important than model ambition."
+      }
+    },
+    {
+      "id": "R047",
+      "category": "confidence",
+      "name": "High Confidence Recommendation",
+      "if": {
+        "all": [
+          "task_type_known == true",
+          "data_type_known == true",
+          "dataset_size_known == true",
+          "metric_known == true",
+          "no_major_rule_conflict == true"
+        ]
+      },
+      "then": {
+        "confidence": "high"
+      }
+    },
+    {
+      "id": "R048",
+      "category": "confidence",
+      "name": "Medium Confidence Recommendation",
+      "if": {
+        "all": [
+          "task_type_known == true",
+          "data_type_known == true"
+        ],
+        "any": [
+          "dataset_size_known == false",
+          "class_balance == unknown",
+          "missing_value_percentage == unknown"
+        ]
+      },
+      "then": {
+        "confidence": "medium",
+        "action": "Ask follow-up questions or give temporary recommendation."
+      }
+    },
+    {
+      "id": "R049",
+      "category": "confidence",
+      "name": "Low Confidence Recommendation",
+      "if": {
+        "any": [
+          "task_type_known == false",
+          "data_type_known == false",
+          "major_rule_conflict == true"
+        ]
+      },
+      "then": {
+        "confidence": "low",
+        "warning": "Important information is missing or rules conflict."
+      }
+    },
+    {
+      "id": "R050",
+      "category": "missing_input",
+      "name": "Missing Target Column",
+      "if": {
+        "all": [
+          "has_target_column == unknown"
+        ]
+      },
+      "then": {
+        "ask": "What do you want to predict?",
+        "temporary_recommendation": "Cannot confirm supervised or unsupervised learning yet."
+      }
+    },
+    {
+      "id": "R051",
+      "category": "missing_input",
+      "name": "Missing Dataset Size",
+      "if": {
+        "all": [
+          "dataset_rows == unknown"
+        ]
+      },
+      "then": {
+        "temporary_recommendation": "Start with simple baseline models first.",
+        "confidence_modifier": "decrease"
+      }
+    },
+    {
+      "id": "R052",
+      "category": "missing_input",
+      "name": "Missing Class Balance",
+      "if": {
+        "all": [
+          "problem_type == classification",
+          "class_balance == unknown"
+        ]
+      },
+      "then": {
+        "metrics": [
+          "Accuracy",
+          "F1-Score"
+        ],
+        "warning": "Accuracy may be misleading if the classes are imbalanced."
+      }
+    },
+    {
+      "id": "R053",
+      "category": "data_quality",
+      "name": "Duplicate Rows",
+      "if": {
+        "all": [
+          "duplicate_rows_exist == true"
+        ]
+      },
+      "then": {
+        "warning": "Duplicate rows may bias the model.",
+        "preprocessing": [
+          "Remove duplicate rows"
+        ]
+      }
+    },
+    {
+      "id": "R054",
+      "category": "data_quality",
+      "name": "Data Leakage",
+      "if": {
+        "all": [
+          "feature_directly_reveals_target == true"
+        ]
+      },
+      "then": {
+        "warning": "Data leakage detected. Remove this feature before training.",
+        "severity": "high"
+      }
+    },
+    {
+      "id": "R055",
+      "category": "data_quality",
+      "name": "Too Many Missing Values in Feature",
+      "if": {
+        "all": [
+          "feature_missing_percentage > 40"
+        ]
+      },
+      "then": {
+        "recommendation": "Drop the feature or ask whether the feature is important."
+      }
+    },
+    {
+      "id": "R056",
+      "category": "task_type",
+      "name": "Binary Classification",
+      "if": {
+        "all": [
+          "problem_type == classification",
+          "target_unique_classes == 2"
+        ]
+      },
+      "then": {
+        "classification_type": "binary_classification"
+      }
+    },
+    {
+      "id": "R057",
+      "category": "task_type",
+      "name": "Multi-Class Classification",
+      "if": {
+        "all": [
+          "problem_type == classification",
+          "target_unique_classes > 2",
+          "can_have_multiple_labels == false"
+        ]
+      },
+      "then": {
+        "classification_type": "multi_class_classification"
+      }
+    },
+    {
+      "id": "R058",
+      "category": "task_type",
+      "name": "Multi-Label Classification",
+      "if": {
+        "all": [
+          "problem_type == classification",
+          "can_have_multiple_labels == true"
+        ]
+      },
+      "then": {
+        "classification_type": "multi_label_classification",
+        "recommended_models": [
+          "One-vs-Rest Logistic Regression",
+          "Random Forest",
+          "XGBoost"
+        ]
+      }
+    },
+    {
+      "id": "R059",
+      "category": "final_validation",
+      "name": "Safe Final Recommendation",
+      "if": {
+        "all": [
+          "task_type_known == true",
+          "model_matches_data_type == true",
+          "model_fits_dataset_size == true",
+          "metric_matches_task == true",
+          "practical_constraints_satisfied == true"
+        ]
+      },
+      "then": {
+        "status": "approved",
+        "output_sections": [
+          "problem_type",
+          "confidence_level",
+          "baseline_model",
+          "advanced_model",
+          "preprocessing_steps",
+          "evaluation_metrics",
+          "warnings",
+          "explanation",
+          "starter_code_suggestion"
+        ]
+      }
+    },
+    {
+      "id": "R060",
+      "category": "final_validation",
+      "name": "Temporary Recommendation",
+      "if": {
+        "any": [
+          "dataset_rows == unknown",
+          "class_balance == unknown",
+          "data_type == unknown",
+          "has_target_column == unknown"
+        ]
+      },
+      "then": {
+        "status": "temporary_recommendation",
+        "action": "State missing information clearly and recommend a safe baseline first."
       }
     }
+  ],
+  "model_catalog": {
+    "classification": {
+      "baseline": [
+        "Logistic Regression",
+        "Decision Tree",
+        "Naive Bayes",
+        "KNN",
+        "SVM"
+      ],
+      "advanced": [
+        "Random Forest",
+        "XGBoost",
+        "LightGBM"
+      ],
+      "deep_learning": [
+        "CNN",
+        "LSTM",
+        "BERT",
+        "Transformer"
+      ]
+    },
+    "regression": {
+      "baseline": [
+        "Linear Regression",
+        "Decision Tree Regressor"
+      ],
+      "advanced": [
+        "Random Forest Regressor",
+        "XGBoost Regressor",
+        "LightGBM Regressor"
+      ]
+    },
+    "clustering": {
+      "baseline": [
+        "K-Means",
+        "Hierarchical Clustering"
+      ],
+      "advanced": [
+        "DBSCAN",
+        "Gaussian Mixture Model"
+      ]
+    },
+    "anomaly_detection": {
+      "baseline": [
+        "Z-Score",
+        "IQR Method"
+      ],
+      "advanced": [
+        "Isolation Forest",
+        "One-Class SVM",
+        "Autoencoder"
+      ]
+    },
+    "time_series_forecasting": {
+      "baseline": [
+        "Moving Average",
+        "ARIMA",
+        "Prophet"
+      ],
+      "advanced": [
+        "XGBoost with lag features",
+        "LSTM",
+        "GRU"
+      ]
+    },
+    "nlp": {
+      "baseline": [
+        "TF-IDF + Naive Bayes",
+        "TF-IDF + Logistic Regression",
+        "TF-IDF + SVM"
+      ],
+      "advanced": [
+        "LSTM",
+        "BERT",
+        "Transformer"
+      ]
+    }
+  },
+  "metric_catalog": {
+    "classification": {
+      "balanced": [
+        "Accuracy"
+      ],
+      "imbalanced": [
+        "F1-Score",
+        "Precision",
+        "Recall",
+        "PR-AUC"
+      ],
+      "false_negative_high_cost": [
+        "Recall"
+      ],
+      "false_positive_high_cost": [
+        "Precision"
+      ]
+    },
+    "regression": {
+      "normal_errors": [
+        "RMSE"
+      ],
+      "outliers": [
+        "MAE"
+      ],
+      "explain_variance": [
+        "R2 Score"
+      ]
+    },
+    "clustering": [
+      "Silhouette Score",
+      "Davies-Bouldin Index"
+    ],
+    "anomaly_detection": [
+      "Precision",
+      "Recall",
+      "F1-Score",
+      "PR-AUC"
+    ],
+    "time_series_forecasting": [
+      "MAE",
+      "RMSE",
+      "MAPE"
+    ],
+    "nlp": [
+      "Accuracy",
+      "F1-Score",
+      "Precision",
+      "Recall"
+    ]
+  },
+  "default_output_template": {
+    "problem_type": null,
+    "confidence_level": null,
+    "recommended_baseline_model": [],
+    "recommended_advanced_model": [],
+    "preprocessing_steps": [],
+    "evaluation_metrics": [],
+    "warnings": [],
+    "explanation": null,
+    "starter_code_suggestion": null
   }
 }
