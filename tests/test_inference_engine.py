@@ -44,12 +44,17 @@ class InferenceEngineTest(unittest.TestCase):
         payload.update(overrides)
         return infer_recommendation(payload, self.knowledge_base)
 
+    def trace_rule_ids(self, result):
+        return [item["rule_id"] for item in result["explanation_trace"]]
+
     def test_categorical_target_infers_classification(self):
         result = self.infer()
 
         self.assertEqual(result["problem_type"], "classification")
         self.assertEqual(result["classification_type"], "binary_classification")
         self.assertIn("Logistic Regression", result["recommended_baseline_model"])
+        self.assertIn("R005", self.trace_rule_ids(result))
+        self.assertIn("R056", self.trace_rule_ids(result))
 
     def test_numeric_label_uses_numeric_trap(self):
         result = self.infer(target_type="numeric_label", target_unique_classes=3)
@@ -57,6 +62,7 @@ class InferenceEngineTest(unittest.TestCase):
         self.assertEqual(result["problem_type"], "classification")
         self.assertEqual(result["classification_type"], "multi_class_classification")
         self.assertTrue(any("Numeric labels" in warning for warning in result["warnings"]))
+        self.assertIn("R011", self.trace_rule_ids(result))
 
     def test_continuous_numeric_infers_regression(self):
         result = self.infer(
@@ -68,6 +74,7 @@ class InferenceEngineTest(unittest.TestCase):
         self.assertEqual(result["problem_type"], "regression")
         self.assertIn("Linear Regression", result["recommended_baseline_model"])
         self.assertIn("R2 Score", result["evaluation_metrics"])
+        self.assertIn("R006", self.trace_rule_ids(result))
 
     def test_time_series_forecasting_overrides_regression(self):
         result = self.infer(
@@ -79,6 +86,7 @@ class InferenceEngineTest(unittest.TestCase):
 
         self.assertEqual(result["problem_type"], "time_series_forecasting")
         self.assertIn("Moving Average", result["recommended_baseline_model"])
+        self.assertIn("R009", self.trace_rule_ids(result))
 
     def test_unlabeled_grouping_infers_clustering(self):
         result = self.infer(
@@ -90,6 +98,7 @@ class InferenceEngineTest(unittest.TestCase):
 
         self.assertEqual(result["problem_type"], "clustering")
         self.assertIn("K-Means", result["recommended_baseline_model"])
+        self.assertIn("R007", self.trace_rule_ids(result))
 
     def test_anomaly_goal_infers_anomaly_detection(self):
         result = self.infer(
@@ -101,6 +110,7 @@ class InferenceEngineTest(unittest.TestCase):
 
         self.assertEqual(result["problem_type"], "anomaly_detection")
         self.assertIn("Isolation Forest", result["recommended_advanced_model"])
+        self.assertIn("R008", self.trace_rule_ids(result))
 
     def test_small_dataset_blocks_deep_learning_first_choice(self):
         result = self.infer(
@@ -115,17 +125,38 @@ class InferenceEngineTest(unittest.TestCase):
         self.assertEqual(result["problem_type"], "nlp")
         self.assertNotIn("BERT", result["recommended_advanced_model"])
         self.assertTrue(any("Small datasets" in warning for warning in result["warnings"]))
+        self.assertIn("R025", self.trace_rule_ids(result))
+        self.assertIn("R045", self.trace_rule_ids(result))
 
     def test_imbalanced_classification_uses_imbalance_metrics(self):
         result = self.infer(class_balance="imbalanced", majority_class_percentage=85)
 
         self.assertEqual(result["evaluation_metrics"], ["F1-Score", "Precision", "Recall", "PR-AUC"])
+        self.assertIn("R039", self.trace_rule_ids(result))
 
     def test_missing_dataset_size_gives_temporary_recommendation(self):
         result = self.infer(dataset_rows="unknown")
 
         self.assertEqual(result["confidence_level"], "medium")
         self.assertEqual(result["status"], "temporary_recommendation")
+        self.assertIn("R051", self.trace_rule_ids(result))
+        self.assertIn("R060", self.trace_rule_ids(result))
+
+    def test_formula_gate_records_ml_necessity_trace(self):
+        result = self.infer(output_can_be_calculated_by_formula=True)
+
+        self.assertEqual(result["problem_type"], "rule_based_logic")
+        self.assertEqual(result["recommended_baseline_model"], ["Rule-Based Logic", "Standard Statistics"])
+        self.assertIn("R001", self.trace_rule_ids(result))
+
+    def test_trace_items_use_public_shape(self):
+        result = self.infer()
+        first_trace_item = result["explanation_trace"][0]
+
+        self.assertEqual(
+            set(first_trace_item),
+            {"rule_id", "rule_name", "category", "decision", "reason", "evidence", "impact"},
+        )
 
 
 if __name__ == "__main__":

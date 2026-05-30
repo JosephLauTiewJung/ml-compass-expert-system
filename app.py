@@ -18,6 +18,8 @@ def load_knowledge_base():
 
 
 def load_custom_css():
+    # Streamlit exposes limited theming hooks, so the app uses scoped CSS
+    # selectors and app-specific classes for the custom visual treatment.
     st.markdown(
         """
         <style>
@@ -274,11 +276,15 @@ def load_custom_css():
 
 
 def section_title(title, first=False):
+    # Keep section headings consistent while avoiding repeated raw HTML in the
+    # form-building code.
     class_name = "ml-section-title first" if first else "ml-section-title"
     st.markdown(f'<div class="{class_name}">{title}</div>', unsafe_allow_html=True)
 
 
 def unknown_bool(label, key, default="unknown"):
+    # The inference engine distinguishes "unknown" from False, so binary form
+    # controls need a third explicit option instead of a checkbox.
     options = ["unknown", True, False]
     labels = {
         "unknown": "I do not know",
@@ -290,6 +296,8 @@ def unknown_bool(label, key, default="unknown"):
 
 
 def optional_number(label, key, min_value=0, max_value=None, default_value=None):
+    # Streamlit number inputs always return a number; this companion checkbox
+    # lets users pass the engine's UNKNOWN marker when the value is unavailable.
     unknown = st.checkbox(f"I do not know the {label.lower()}", key=f"{key}_unknown")
     if unknown:
         st.number_input(
@@ -333,6 +341,8 @@ def render_header():
 
 def build_form_payload():
     with st.form("problem_form"):
+        # All widgets live inside one form so the inference engine only runs
+        # after the user submits a complete snapshot of their answers.
         problem_description = st.text_area(
             "Problem description",
             placeholder="Example: I have customer records and want to predict whether each customer will churn.",
@@ -377,6 +387,8 @@ def build_form_payload():
 
         text_complexity = "unknown"
         if data_type == "text":
+            # Text complexity only matters for NLP model selection, so keep this
+            # field hidden for non-text datasets.
             text_complexity = st.radio(
                 "How complex is the text task?",
                 options=["simple", "complex", "unknown"],
@@ -393,6 +405,8 @@ def build_form_payload():
         target_unique_classes = "unknown"
         can_have_multiple_labels = "unknown"
         if has_target_column is not False:
+            # If the user is unsure whether labels exist, still collect target
+            # details and let the engine lower confidence if answers conflict.
             target_type = st.radio(
                 "What kind of target do you have?",
                 options=["unknown", "categorical", "continuous_numeric", "numeric_label"],
@@ -406,6 +420,9 @@ def build_form_payload():
             )
 
             if target_type in {"categorical", "numeric_label"}:
+                # The engine only needs binary versus multi-class, so the UI
+                # maps "More than 2" to a representative count instead of
+                # forcing beginners to provide an exact class total.
                 target_col_1, target_col_2 = st.columns(2)
                 with target_col_1:
                     class_count_choice = st.radio(
@@ -522,6 +539,8 @@ def build_form_payload():
         st.markdown('<div class="ml-note">Unknown values are allowed. ML Compass will mark uncertain recommendations clearly.</div>', unsafe_allow_html=True)
         submitted = st.form_submit_button("Get recommendation")
 
+    # Keep payload keys aligned with normalize_input() in the inference engine;
+    # display-only fields may be included but are ignored by the rules.
     payload = {
         "problem_description": problem_description,
         "output_can_be_calculated_by_formula": output_can_be_calculated_by_formula,
@@ -548,6 +567,7 @@ def build_form_payload():
 
 
 def render_model_cards(models):
+    # The same compact card grid is reused for models and metric names.
     if not models:
         st.caption("No model suggested for this section.")
         return
@@ -556,7 +576,29 @@ def render_model_cards(models):
     st.markdown(f'<div class="ml-model-grid">{cards}</div>', unsafe_allow_html=True)
 
 
+def render_rule_trace(trace):
+    # Expand the first few rules to expose the reasoning path without making
+    # long traces overwhelming.
+    if not trace:
+        st.caption("No rule trace available.")
+        return
+
+    for index, item in enumerate(trace, start=1):
+        title = f'{index}. {item.get("rule_id", "RULE")} - {item.get("rule_name", "Unnamed rule")}'
+        with st.expander(title, expanded=index <= 3):
+            st.markdown(f'**Category:** {item.get("category", "unknown")}')
+            st.markdown(f'**Decision:** {item.get("decision", "No decision recorded.")}')
+            st.markdown(f'**Reason:** {item.get("reason", "No reason recorded.")}')
+            st.markdown(f'**Impact:** {item.get("impact", "No impact recorded.")}')
+            evidence = item.get("evidence") or {}
+            if evidence:
+                st.markdown("**Evidence**")
+                st.json(evidence)
+
+
 def render_recommendation(result):
+    # Result rendering is defensive because recommendations can be temporary or
+    # rule-based and may omit fields that ordinary ML recommendations include.
     problem_title = result.get("problem_type", "unknown").replace("_", " ").title()
     confidence = result.get("confidence_level", "unknown")
     status = result.get("status", "unknown").replace("_", " ").title()
@@ -579,8 +621,8 @@ def render_recommendation(result):
     for warning in result.get("warnings", []):
         st.warning(warning)
 
-    model_tab, metric_tab, prep_tab, code_tab = st.tabs(
-        ["Models", "Metrics", "Preprocessing", "Starter Code"]
+    model_tab, metric_tab, prep_tab, code_tab, trace_tab = st.tabs(
+        ["Models", "Metrics", "Preprocessing", "Starter Code", "Rule Trace"]
     )
 
     with model_tab:
@@ -602,13 +644,18 @@ def render_recommendation(result):
     with code_tab:
         st.code(result.get("starter_code_suggestion") or "# No starter code available.", language="python")
 
+    with trace_tab:
+        render_rule_trace(result.get("explanation_trace", []))
+
     st.markdown("</div>", unsafe_allow_html=True)
 
-
+# main program start here
 def main():
     st.set_page_config(page_title="ML Compass", page_icon="ML", layout="wide")
     load_custom_css()
 
+    # The knowledge base is cached, while each submitted payload is evaluated
+    # fresh so changes in form answers immediately update the recommendation.
     knowledge_base = load_knowledge_base()
 
     render_header()
