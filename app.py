@@ -10,6 +10,7 @@ from inference_engine.inference_engine import infer_recommendation
 
 APP_DIR = Path(__file__).parent
 KNOWLEDGE_BASE_PATH = APP_DIR / "knowledge_base" / "knowledge_base.json"
+AUTO_POPULATED_TAG = ":red-background[Auto-populated]"
 
 
 @st.cache_data
@@ -286,8 +287,12 @@ def section_title(title, first=False):
 
 def auto_label(label, field_name, auto_fields):
     if field_name in auto_fields:
-        return f"{label} `Auto-populated`"
+        return f"{label} {AUTO_POPULATED_TAG}"
     return label
+
+
+def plain_label(label):
+    return label.replace(AUTO_POPULATED_TAG, "").strip()
 
 
 def widget_key(key, suffix):
@@ -326,7 +331,7 @@ def optional_number(label, key, min_value=0, max_value=None, default_value=None,
     unknown_default = default_value == "unknown"
     numeric_default = min_value if unknown_default or default_value is None else default_value
     unknown = st.checkbox(
-        f"I do not know the {label.lower().replace(' `auto-populated`', '')}",
+        f"I do not know the {plain_label(label).lower()}",
         key=widget_key(f"{key}_unknown", key_suffix),
         value=unknown_default,
     )
