@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
+from dataset_profile import profile_dataset
 from inference_engine.inference_engine import infer_recommendation
 
 
@@ -282,7 +284,23 @@ def section_title(title, first=False):
     st.markdown(f'<div class="{class_name}">{title}</div>', unsafe_allow_html=True)
 
 
-def unknown_bool(label, key, default="unknown"):
+def auto_label(label, field_name, auto_fields):
+    if field_name in auto_fields:
+        return f"{label} `Auto-populated`"
+    return label
+
+
+def widget_key(key, suffix):
+    return f"{key}_{suffix}"
+
+
+def option_index(options, value, fallback=0):
+    if value in options:
+        return options.index(value)
+    return fallback
+
+
+def unknown_bool(label, key, default="unknown", key_suffix="manual"):
     # The inference engine distinguishes "unknown" from False, so binary form
     # controls need a third explicit option instead of a checkbox.
     options = ["unknown", True, False]
@@ -291,22 +309,35 @@ def unknown_bool(label, key, default="unknown"):
         True: "Yes",
         False: "No",
     }
-    index = options.index(default)
-    return st.radio(label, options=options, format_func=lambda value: labels[value], index=index, horizontal=True, key=key)
+    index = option_index(options, default)
+    return st.radio(
+        label,
+        options=options,
+        format_func=lambda value: labels[value],
+        index=index,
+        horizontal=True,
+        key=widget_key(key, key_suffix),
+    )
 
 
-def optional_number(label, key, min_value=0, max_value=None, default_value=None):
+def optional_number(label, key, min_value=0, max_value=None, default_value=None, key_suffix="manual"):
     # Streamlit number inputs always return a number; this companion checkbox
     # lets users pass the engine's UNKNOWN marker when the value is unavailable.
-    unknown = st.checkbox(f"I do not know the {label.lower()}", key=f"{key}_unknown")
+    unknown_default = default_value == "unknown"
+    numeric_default = min_value if unknown_default or default_value is None else default_value
+    unknown = st.checkbox(
+        f"I do not know the {label.lower().replace(' `auto-populated`', '')}",
+        key=widget_key(f"{key}_unknown", key_suffix),
+        value=unknown_default,
+    )
     if unknown:
         st.number_input(
             label,
             min_value=min_value,
             max_value=max_value,
-            value=default_value or min_value,
+            value=numeric_default,
             step=1,
-            key=f"{key}_disabled",
+            key=widget_key(f"{key}_disabled", key_suffix),
             disabled=True,
         )
         return "unknown"
@@ -315,10 +346,56 @@ def optional_number(label, key, min_value=0, max_value=None, default_value=None)
         label,
         min_value=min_value,
         max_value=max_value,
-        value=default_value or min_value,
+        value=numeric_default,
         step=1,
-        key=key,
+        key=widget_key(key, key_suffix),
     )
+
+
+def read_uploaded_dataset(uploaded_file):
+    suffix = Path(uploaded_file.name).suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(uploaded_file)
+    if suffix == ".xlsx":
+        return pd.read_excel(uploaded_file, engine="openpyxl")
+    if suffix == ".xls":
+        return pd.read_excel(uploaded_file, engine="xlrd")
+    raise ValueError("Only CSV, XLSX, and XLS files are supported.")
+
+
+def render_dataset_upload():
+    uploaded_file = st.file_uploader(
+        "Upload a CSV or Excel dataset",
+        type=["csv", "xlsx", "xls"],
+        help="ML Compass can use a tabular file to pre-fill dataset questions. You can edit every detected answer.",
+    )
+    if not uploaded_file:
+        return {}, set(), "manual"
+
+    try:
+        dataset = read_uploaded_dataset(uploaded_file)
+    except Exception as error:
+        st.error(f"Could not read the uploaded dataset: {error}")
+        return {}, set(), "upload_error"
+
+    if dataset.empty:
+        st.warning("The uploaded dataset is empty, so the questions were left for manual input.")
+        return {}, set(), "empty_upload"
+
+    column_by_label = {str(column): column for column in dataset.columns}
+    target_options = ["No target column / not sure"] + list(column_by_label)
+    target_choice = st.selectbox(
+        "Target column",
+        options=target_options,
+        help="Choose the label column if your dataset has one. Target-based answers are detected after this is selected.",
+    )
+    target_column = None if target_choice == target_options[0] else column_by_label[target_choice]
+    auto_defaults, auto_fields = profile_dataset(dataset, target_column=target_column)
+    st.caption(f"Detected {len(dataset):,} rows and {len(dataset.columns):,} columns from {uploaded_file.name}.")
+
+    file_token = f"{uploaded_file.name}_{uploaded_file.size}_{target_choice}"
+    key_suffix = str(abs(hash(file_token)))
+    return auto_defaults, auto_fields, key_suffix
 
 
 def render_header():
@@ -339,7 +416,10 @@ def render_header():
     )
 
 
-def build_form_payload():
+def build_form_payload(auto_defaults=None, auto_fields=None, key_suffix="manual"):
+    auto_defaults = auto_defaults or {}
+    auto_fields = auto_fields or set()
+
     with st.form("problem_form"):
         # All widgets live inside one form so the inference engine only runs
         # after the user submits a complete snapshot of their answers.
@@ -355,9 +435,15 @@ def build_form_payload():
                 "Can the output be calculated directly with a formula or fixed rule?",
                 "formula_gate",
                 default=False,
+                key_suffix=key_suffix,
             )
         with setup_col_2:
-            has_target_column = unknown_bool("Do you have a target column or labels?", "has_target_column")
+            has_target_column = unknown_bool(
+                auto_label("Do you have a target column or labels?", "has_target_column", auto_fields),
+                "has_target_column",
+                default=auto_defaults.get("has_target_column", "unknown"),
+                key_suffix=key_suffix,
+            )
 
         goal = st.selectbox(
             "What is the main goal?",
@@ -371,9 +457,10 @@ def build_form_payload():
                 "forecasting": "Predict future values",
                 "nlp": "Work with text or language",
             }[value],
+            key=widget_key("goal", key_suffix),
         )
         data_type = st.selectbox(
-            "What is the main data type?",
+            auto_label("What is the main data type?", "data_type", auto_fields),
             options=["unknown", "tabular", "text", "image", "time_series", "multimodal"],
             format_func=lambda value: {
                 "unknown": "I do not know",
@@ -383,6 +470,11 @@ def build_form_payload():
                 "time_series": "Time series",
                 "multimodal": "Multiple data types",
             }[value],
+            index=option_index(
+                ["unknown", "tabular", "text", "image", "time_series", "multimodal"],
+                auto_defaults.get("data_type", "unknown"),
+            ),
+            key=widget_key("data_type", key_suffix),
         )
 
         text_complexity = "unknown"
@@ -398,6 +490,7 @@ def build_form_payload():
                     "unknown": "I do not know",
                 }[value],
                 horizontal=True,
+                key=widget_key("text_complexity", key_suffix),
             )
 
         section_title("Target Details")
@@ -408,7 +501,7 @@ def build_form_payload():
             # If the user is unsure whether labels exist, still collect target
             # details and let the engine lower confidence if answers conflict.
             target_type = st.radio(
-                "What kind of target do you have?",
+                auto_label("What kind of target do you have?", "target_type", auto_fields),
                 options=["unknown", "categorical", "continuous_numeric", "numeric_label"],
                 format_func=lambda value: {
                     "unknown": "I do not know",
@@ -417,6 +510,11 @@ def build_form_payload():
                     "numeric_label": "Numbers used as labels",
                 }[value],
                 horizontal=True,
+                index=option_index(
+                    ["unknown", "categorical", "continuous_numeric", "numeric_label"],
+                    auto_defaults.get("target_type", "unknown"),
+                ),
+                key=widget_key("target_type", key_suffix),
             )
 
             if target_type in {"categorical", "numeric_label"}:
@@ -425,8 +523,15 @@ def build_form_payload():
                 # forcing beginners to provide an exact class total.
                 target_col_1, target_col_2 = st.columns(2)
                 with target_col_1:
+                    detected_class_count = auto_defaults.get("target_unique_classes", "unknown")
+                    if detected_class_count == 2:
+                        class_count_default = "two"
+                    elif detected_class_count != "unknown":
+                        class_count_default = "many"
+                    else:
+                        class_count_default = "unknown"
                     class_count_choice = st.radio(
-                        "How many target classes are there?",
+                        auto_label("How many target classes are there?", "target_unique_classes", auto_fields),
                         options=["unknown", "two", "many"],
                         format_func=lambda value: {
                             "unknown": "I do not know",
@@ -434,6 +539,8 @@ def build_form_payload():
                             "many": "More than 2",
                         }[value],
                         horizontal=True,
+                        index=option_index(["unknown", "two", "many"], class_count_default),
+                        key=widget_key("target_unique_classes", key_suffix),
                     )
                     target_unique_classes = {"unknown": "unknown", "two": 2, "many": 3}[class_count_choice]
                 with target_col_2:
@@ -441,14 +548,21 @@ def build_form_payload():
                         "Can one record belong to multiple labels at the same time?",
                         "can_have_multiple_labels",
                         default=False,
+                        key_suffix=key_suffix,
                     )
 
         section_title("Dataset and Constraints")
         data_col_1, data_col_2 = st.columns(2)
         with data_col_1:
-            dataset_rows = optional_number("Dataset rows", "dataset_rows", min_value=1, default_value=1000)
+            dataset_rows = optional_number(
+                auto_label("Dataset rows", "dataset_rows", auto_fields),
+                "dataset_rows",
+                min_value=1,
+                default_value=auto_defaults.get("dataset_rows", 1000),
+                key_suffix=key_suffix,
+            )
             class_balance = st.radio(
-                "Are the classes balanced?",
+                auto_label("Are the classes balanced?", "class_balance", auto_fields),
                 options=["unknown", "balanced", "imbalanced"],
                 format_func=lambda value: {
                     "unknown": "I do not know",
@@ -456,24 +570,31 @@ def build_form_payload():
                     "imbalanced": "Imbalanced",
                 }[value],
                 horizontal=True,
+                index=option_index(
+                    ["unknown", "balanced", "imbalanced"],
+                    auto_defaults.get("class_balance", "unknown"),
+                ),
+                key=widget_key("class_balance", key_suffix),
             )
             majority_class_percentage = optional_number(
-                "Majority class percentage",
+                auto_label("Majority class percentage", "majority_class_percentage", auto_fields),
                 "majority_class_percentage",
                 min_value=0,
                 max_value=100,
-                default_value=50,
+                default_value=auto_defaults.get("majority_class_percentage", 50),
+                key_suffix=key_suffix,
             )
         with data_col_2:
             missing_value_percentage = optional_number(
-                "Missing value percentage",
+                auto_label("Missing value percentage", "missing_value_percentage", auto_fields),
                 "missing_value_percentage",
                 min_value=0,
                 max_value=100,
-                default_value=0,
+                default_value=auto_defaults.get("missing_value_percentage", 0),
+                key_suffix=key_suffix,
             )
             missing_value_type = st.radio(
-                "What type of missing values are present?",
+                auto_label("What type of missing values are present?", "missing_value_type", auto_fields),
                 options=["unknown", "numerical", "categorical", "mixed"],
                 format_func=lambda value: {
                     "unknown": "I do not know or none",
@@ -482,8 +603,18 @@ def build_form_payload():
                     "mixed": "Mixed",
                 }[value],
                 horizontal=True,
+                index=option_index(
+                    ["unknown", "numerical", "categorical", "mixed"],
+                    auto_defaults.get("missing_value_type", "unknown"),
+                ),
+                key=widget_key("missing_value_type", key_suffix),
             )
-            has_outliers = unknown_bool("Does the dataset have important outliers?", "has_outliers")
+            has_outliers = unknown_bool(
+                auto_label("Does the dataset have important outliers?", "has_outliers", auto_fields),
+                "has_outliers",
+                default=auto_defaults.get("has_outliers", "unknown"),
+                key_suffix=key_suffix,
+            )
 
         section_title("Project Practicality")
         practical_col_1, practical_col_2 = st.columns(2)
@@ -498,8 +629,9 @@ def build_form_payload():
                     "unknown": "I do not know",
                 }[value],
                 horizontal=True,
+                key=widget_key("priority", key_suffix),
             )
-            has_gpu = unknown_bool("Do you have GPU access?", "has_gpu")
+            has_gpu = unknown_bool("Do you have GPU access?", "has_gpu", key_suffix=key_suffix)
             programming_skill = st.radio(
                 "Programming skill level",
                 options=["beginner", "intermediate", "advanced", "unknown"],
@@ -510,6 +642,7 @@ def build_form_payload():
                     "unknown": "I do not know",
                 }[value],
                 horizontal=True,
+                key=widget_key("programming_skill", key_suffix),
             )
         with practical_col_2:
             domain = st.selectbox(
@@ -523,6 +656,7 @@ def build_form_payload():
                     "educational": "Educational",
                     "unknown": "I do not know",
                 }[value],
+                key=widget_key("domain", key_suffix),
             )
             timeline = st.radio(
                 "How much time do you have?",
@@ -534,6 +668,7 @@ def build_form_payload():
                     "long": "Long",
                 }[value],
                 horizontal=True,
+                key=widget_key("timeline", key_suffix),
             )
 
         st.markdown('<div class="ml-note">Unknown values are allowed. ML Compass will mark uncertain recommendations clearly.</div>', unsafe_allow_html=True)
@@ -659,7 +794,8 @@ def main():
     knowledge_base = load_knowledge_base()
 
     render_header()
-    submitted, payload = build_form_payload()
+    auto_defaults, auto_fields, form_key_suffix = render_dataset_upload()
+    submitted, payload = build_form_payload(auto_defaults, auto_fields, form_key_suffix)
 
     if submitted:
         if payload["problem_description"]:
